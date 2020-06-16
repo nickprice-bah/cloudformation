@@ -1,0 +1,53 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Thingdoer Fargate Template
+Parameters:
+  TaskRoleArn:
+    Type: String
+  ExecutionRoleArn:
+    Type: String
+  VPCIdDev:
+    Type: "AWS::EC2::VPC::Id"
+  LBSecurityGroupDev:
+    Type: "AWS::EC2::SecurityGroup::Id"
+  ServiceSecurityGroupDev:
+    Type: "AWS::EC2::SecurityGroup::Id"
+  SubnetADev:
+    Type: "AWS::EC2::Subnet::Id"
+  SubnetBDev:
+    Type: "AWS::EC2::Subnet::Id"
+
+Resources:
+
+    ThingdoerTaskDef:
+        Type: AWS::ECS::TaskDefinition
+        DependsOn:
+            - ThingdoerLogGroup
+        Properties:
+            Family: thingdoer-taskdef
+            NetworkMode: awsvpc
+            RequiresCompatibilities:
+                - FARGATE
+            Cpu: 256
+            Memory: 0.5GB
+            ExecutionRoleArn: !Ref ExecutionRoleArn
+            TaskRoleArn: !Ref TaskRoleArn
+            ContainerDefinitions:
+                - Name: thingdoer-container
+                Image: !Sub "${AWS::AccountId}.dkr.ecr.region.amazonaws.com/thingdoer:latest"
+                # PortMappings:
+                    # - ContainerPort: No ports needed for ingest?
+                Environment:
+                    # - Name: ELASTICSEARCH_API_BASE_URL
+                    # Value: /REFERENCE TO AWS VARIABLE STORE
+                LogConfiguration:
+                    LogDriver: awslogs
+                    Options:
+                    awslogs-region: !Ref AWS::Region
+                    awslogs-group: !Ref ThingdoerLogGroup
+                    awslogs-stream-prefix: ecs
+    # log group
+    ThingdoerLogGroup:
+        Type: AWS::Logs::LogGroup
+        Properties:
+            LogGroupName: "/ecs/thingdoer"

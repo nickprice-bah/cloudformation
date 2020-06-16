@@ -1,0 +1,90 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Thingdoer codebuild templates.
+
+Parameters: 
+  ClusterName: 
+    Type: String
+    Default: "main-cluster"
+
+Resources:
+
+  # ECR Repositories
+  Thingdoer:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: thingdoer
+
+# CodeBuild Projects
+  ThingdoerCodeBuildGeneric:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Description: CodeBuild project for testing buildability of all commits.
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:3.0
+        Type: LINUX_CONTAINER
+        PrivilegedMode: True
+        EnvironmentVariables:
+          - Name: AWS_ACCOUNT_ID
+            Type: PLAINTEXT
+            Value: "null"
+          - Name: IMAGE_REPO_NAME
+            Type: PLAINTEXT
+            Value: "null"
+      Name: thingdoer-generic
+      ServiceRole: "{{resolve:ssm:codebuild-role-arn:1}}"
+      Source:
+        Auth:
+          Type: OAUTH
+        Location: https://github.com/nickprice-bah/thingdoer.git
+        Type: GITHUB
+      Triggers:
+        FilterGroups:
+          - - Type: EVENT
+              Pattern: PUSH
+            - Type: HEAD_REF
+              Pattern: "^refs/heads/(master|development)$"
+              ExcludeMatchedPattern: True
+        Webhook: True
+
+  ThingdoerCodeBuildDev:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Description: CodeBuild project for deploying thingdoer to dev.
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:3.0
+        Type: LINUX_CONTAINER
+        PrivilegedMode: True
+        EnvironmentVariables:
+          - Name: AWS_ACCOUNT_ID
+            Value: !Ref AWS::AccountId
+            Type: PLAINTEXT
+          - Name: IMAGE_REPO_NAME
+            Value: !Ref AdminUIDev
+            Type: PLAINTEXT
+          - Name: ECS_CLUSTER
+            Value: !Ref ClusterNameDev # TODO replace this with import
+            Type: PLAINTEXT
+          - Name: ECS_SERVICE
+            Value: "thingdoer-dev" # TODO replace this with import
+            Type: PLAINTEXT
+      Name: thingdoer-dev
+      ServiceRole: "{{resolve:ssm:codebuild-role-arn:1}}"
+      Source:
+        Auth:
+          Type: OAUTH
+        Location: https://github.com/nickprice-bah/thingdoer.git
+        Type: GITHUB
+      Triggers:
+        FilterGroups:
+          - - Type: EVENT
+              Pattern: PUSH
+            - Type: HEAD_REF
+              Pattern: "^refs/heads/development$"
+              ExcludeMatchedPattern: False
+        Webhook: True
